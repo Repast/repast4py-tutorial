@@ -1,0 +1,3 @@
+#! /bin/bash
+export CC=mpicxx
+pip install repast4py

@@ -1,9 +1,0 @@
-# Requirements for repast4py tutorial
-numpy
-numba
-mpi4py
-coverage
-torch
-networkx
-pyyaml
-Cython
