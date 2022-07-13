@@ -1,1 +1,2 @@
 mpich
+libmpich-dev
