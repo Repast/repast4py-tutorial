@@ -78,3 +78,5 @@ notes_nc.txt
 
 # Include R4Py paper experiment data
 !paper_data/*
+
+output/

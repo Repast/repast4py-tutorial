@@ -9,13 +9,6 @@ import repast4py
 from repast4py.space import DiscretePoint as dpt
 
 
-@dataclass
-class ColocationLog:
-    total_colocs: int = 0
-    min_colocs: int = 0
-    max_colocs: int = 0
-
-
 class Walker(core.Agent):
 
     TYPE = 0
@@ -41,18 +34,6 @@ class Walker(core.Agent):
             The saved state of this Walker.
         """
         return (self.uid, self.pt.coordinates)
-
-    def count_colocations(self, grid, coloc_log: ColocationLog):
-        # subtract self
-        num_here = grid.get_num_agents(self.pt) - 1
-        coloc_log.total_colocs += num_here
-        if num_here < coloc_log.min_colocs:
-            coloc_log.min_colocs = num_here
-        if num_here > coloc_log.max_colocs:
-            coloc_log.max_colocs = num_here
-        if self.id == 999:
-            print(f'{self.uid} colocated with {num_here} walkers')
-
 
 
 walker_cache = {}
@@ -114,33 +95,11 @@ class Model:
             self.context.add(walker)
             self.grid.move(walker, pt)
 
-        self.coloc_log = ColocationLog()
-        loggers = logging.create_loggers(self.coloc_log, op=MPI.SUM, names={'total_colocs': 'total'}, rank=rank)
-        loggers += logging.create_loggers(self.coloc_log, op=MPI.MIN, names={'min_colocs': 'min'}, rank=rank)
-        loggers += logging.create_loggers(self.coloc_log, op=MPI.MAX, names={'max_colocs': 'max'}, rank=rank)
-        self.data_set = logging.ReducingDataSet(loggers, comm, params['coloc_log_file'])
-
-        # count the initial colocations at time 0 and log
-        for walker in self.context.agents():
-            walker.count_colocations(self.grid, self.coloc_log)
-        self.data_set.log(0)
-        self.coloc_log.max_colocs = self.coloc_log.min_colocs = self.coloc_log.total_colocs = 0
-        self.runner.schedule_end_event(self.data_set.close)
-
     def step(self):
         for walker in self.context.agents():
             walker.walk(self.grid)
 
         self.context.synchronize(restore_walker)
-
-        for walker in self.context.agents():
-            walker.count_colocations(self.grid, self.coloc_log)
-
-        tick = self.runner.schedule.tick
-        self.data_set.log(tick)
-        # clear the log counts for the next tick
-        self.coloc_log.max_colocs = self.coloc_log.min_colocs = self.coloc_log.total_colocs = 0
-
 
     def start(self):
         self.runner.execute()

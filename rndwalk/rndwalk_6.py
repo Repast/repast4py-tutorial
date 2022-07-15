@@ -115,17 +115,6 @@ class Model:
             self.grid.move(walker, pt)
 
         self.coloc_log = ColocationLog()
-        loggers = logging.create_loggers(self.coloc_log, op=MPI.SUM, names={'total_colocs': 'total'}, rank=rank)
-        loggers += logging.create_loggers(self.coloc_log, op=MPI.MIN, names={'min_colocs': 'min'}, rank=rank)
-        loggers += logging.create_loggers(self.coloc_log, op=MPI.MAX, names={'max_colocs': 'max'}, rank=rank)
-        self.data_set = logging.ReducingDataSet(loggers, comm, params['coloc_log_file'])
-
-        # count the initial colocations at time 0 and log
-        for walker in self.context.agents():
-            walker.count_colocations(self.grid, self.coloc_log)
-        self.data_set.log(0)
-        self.coloc_log.max_colocs = self.coloc_log.min_colocs = self.coloc_log.total_colocs = 0
-        self.runner.schedule_end_event(self.data_set.close)
 
     def step(self):
         for walker in self.context.agents():
@@ -135,12 +124,6 @@ class Model:
 
         for walker in self.context.agents():
             walker.count_colocations(self.grid, self.coloc_log)
-
-        tick = self.runner.schedule.tick
-        self.data_set.log(tick)
-        # clear the log counts for the next tick
-        self.coloc_log.max_colocs = self.coloc_log.min_colocs = self.coloc_log.total_colocs = 0
-
 
     def start(self):
         self.runner.execute()

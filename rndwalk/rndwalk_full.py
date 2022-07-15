@@ -24,15 +24,7 @@ class Walker(core.Agent):
     def __init__(self, local_id: int, rank: int, pt: dpt):
         super().__init__(id=local_id, type=Walker.TYPE, rank=rank)
         self.pt = pt
-
-    def walk(self, grid):
-        # choose two elements from the OFFSET array
-        # to select the direction to walk in the
-        # x and y dimensions
-        xy_dirs = random.default_rng.choice(Walker.OFFSETS, size=2)
-        self.pt = grid.move(self, dpt(self.pt.x + xy_dirs[0], self.pt.y + xy_dirs[1], 0))
-        if self.local_rank != self.uid_rank:
-            print(f'{self.uid} walking at {self.pt} on rank {self.local_rank}')
+        self.meet_count = 0
 
     def save(self) -> Tuple:
         """Saves the state of this Walker as a Tuple.
@@ -40,7 +32,14 @@ class Walker(core.Agent):
         Returns:
             The saved state of this Walker.
         """
-        return (self.uid, self.pt.coordinates)
+        return (self.uid, self.meet_count, self.pt.coordinates)
+
+    def walk(self, grid):
+        # choose two elements from the OFFSET array
+        # to select the direction to walk in the
+        # x and y dimensions
+        xy_dirs = random.default_rng.choice(Walker.OFFSETS, size=2)
+        self.pt = grid.move(self, dpt(self.pt.x + xy_dirs[0], self.pt.y + xy_dirs[1], 0))
 
     def count_colocations(self, grid, coloc_log: ColocationLog):
         # subtract self
@@ -50,9 +49,7 @@ class Walker(core.Agent):
             coloc_log.min_colocs = num_here
         if num_here > coloc_log.max_colocs:
             coloc_log.max_colocs = num_here
-        if self.id == 999:
-            print(f'{self.uid} colocated with {num_here} walkers')
-
+        self.meet_count += num_here
 
 
 walker_cache = {}
@@ -64,18 +61,19 @@ def restore_walker(walker_data: Tuple):
     """
     # uid is a 3 element tuple: 0 is id, 1 is type, 2 is rank
     uid = walker_data[0]
-    pt_array = walker_data[1]
+    pt_array = walker_data[2]
     pt = dpt(pt_array[0], pt_array[1], 0)
 
     if uid in walker_cache:
         walker = walker_cache[uid]
     else:
         walker = Walker(uid[0], uid[2], pt)
+        walker_cache[uid] = walker
 
+    walker.meet_count = walker_data[1]
     walker.pt = pt
     return walker
 
-        
 
 class Model:
     """
@@ -90,18 +88,23 @@ class Model:
     """
 
     def __init__(self, comm: MPI.Intracomm, params: Dict):
-        self.context = ctx.SharedContext(comm)
-
+        # create the schedule
         self.runner = schedule.init_schedule_runner(comm)
         self.runner.schedule_repeating_event(1, 1, self.step)
+        self.runner.schedule_repeating_event(1.1, 10, self.log_agents)
         self.runner.schedule_stop(params['stop.at'])
+        self.runner.schedule_end_event(self.at_end)
+
+        # create the context to hold the agents and manage cross process
+        # synchronization
+        self.context = ctx.SharedContext(comm)
 
         # create a bounding box equal to the size of the entire global world grid
         box = space.BoundingBox(0, params['world.width'], 0, params['world.height'], 0, 0)
         # create a SharedGrid of 'box' size with sticky borders that allows multiple agents
         # in each grid location.
         self.grid = space.SharedGrid(name='grid', bounds=box, borders=space.BorderType.Sticky,
-                                        occupancy=space.OccupancyType.Multiple, buffer_size=2, comm=comm)
+                                     occupancy=space.OccupancyType.Multiple, buffer_size=2, comm=comm)
         self.context.add_projection(self.grid)
 
         rank = comm.Get_rank()
@@ -114,6 +117,9 @@ class Model:
             self.context.add(walker)
             self.grid.move(walker, pt)
 
+        # initialize the logging
+        self.agent_logger = logging.TabularLogger(comm, params['agent_log_file'], ['tick', 'agent_id', 'agent_uid_rank', 'meet_count'])
+
         self.coloc_log = ColocationLog()
         loggers = logging.create_loggers(self.coloc_log, op=MPI.SUM, names={'total_colocs': 'total'}, rank=rank)
         loggers += logging.create_loggers(self.coloc_log, op=MPI.MIN, names={'min_colocs': 'min'}, rank=rank)
@@ -125,7 +131,7 @@ class Model:
             walker.count_colocations(self.grid, self.coloc_log)
         self.data_set.log(0)
         self.coloc_log.max_colocs = self.coloc_log.min_colocs = self.coloc_log.total_colocs = 0
-        self.runner.schedule_end_event(self.data_set.close)
+        self.log_agents()
 
     def step(self):
         for walker in self.context.agents():
@@ -138,13 +144,23 @@ class Model:
 
         tick = self.runner.schedule.tick
         self.data_set.log(tick)
-        # clear the log counts for the next tick
+        # clear the meet log counts for the next tick
         self.coloc_log.max_colocs = self.coloc_log.min_colocs = self.coloc_log.total_colocs = 0
 
+    def log_agents(self):
+        tick = self.runner.schedule.tick
+        for walker in self.context.agents():
+            self.agent_logger.log_row(tick, walker.id, walker.uid_rank, walker.meet_count)
+
+        self.agent_logger.write()
+
+    def at_end(self):
+        self.data_set.close()
+        self.agent_logger.close()
 
     def start(self):
         self.runner.execute()
-    
+
 
 def run(params: Dict):
     model = Model(MPI.COMM_WORLD, params)
