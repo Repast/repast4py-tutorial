@@ -10,7 +10,7 @@ and logging the aggregate and agent-level colocation counts. Each timestep the f
 location by determining the number of colocated agents at their grid locations.
 
 3. The sum, minimum, and maxiumum number of co-located agents are calculated across
-all process ranks, and these values are logged as the total, minimum, and maximum colocations
+all process ranks, and these values are logged as the total, minimum, and maximum colocation
 values.
 
 The code consists of the following components:
@@ -23,13 +23,14 @@ The code consists of the following components:
 
 
 The tutorial code begins with a skeleton, and we progressively add code to that
-to implement the components.
+to implement the components. The code for the completed is specified at the beginning of each step.
 
 ## Step 0
 
 Completed code in `rndwalk_0.py`.
 
-Open a terminal in binder Jupyter Lab launcher.
+1. Open a terminal in the binder Jupyter Lab launcher, and do
+the following:
 
 ```bash
 $ cd rndwalk
@@ -46,7 +47,7 @@ The skeleton parses the parameters from a yaml file and prints them out.
 Completed code in `rndwalk_1.py`.
 
 Step 1 begins the Walker agent implementation and
-creates them in the Model.
+creates a population of Walker agents in the Model.
 
 1. Add a minimal Walker to the code.
 
@@ -92,7 +93,7 @@ Notice how in the second case we have 1K agents on each process rank (0 and 1).
 
 Completed code in `rndwalk_2.py`.
 
-Step continues the Walker implementation with a initial walk method,
+Step 2 continues the Walker implementation with a initial walk method,
 and schedules that method to execute all the agents via the Model.
 
 1. Add a walk method to Walker
@@ -118,14 +119,14 @@ self.runner.schedule_repeating_event(1, 1, self.step)
 self.runner.schedule_stop(params['stop.at'])
 ```
 
-4. Add `start` method to `Model` to start the schedule
+4. Add a `start` method to `Model` to start the schedule
 
 ```python
 def start(self):
     self.runner.execute()
 ```
 
-4. In `def run():` call `Model.start()`
+4. In `def run()` call `Model.start()`
 
 ```python
 def run(params: Dict):
@@ -187,7 +188,7 @@ Completed code in `rndwalk_4.py`.
 
 Step 4 adds the Walker walking around the 2D grid.
 
-1. In `Model.step()` pass the `self.grid` to `Walker.walk`:
+1. In `Model.step()` pass `self.grid` to `Walker.walk`:
 
 ```python
 def step(self):
@@ -215,7 +216,7 @@ def walk(self, grid):
 
 Completed code in `rndwalk_5.py`.
 
-Step 5 adds the multiprocess synchronization so that Walkers can walk out their
+Step 5 adds multiprocess synchronization so that Walkers can walk out of their
 local area into that controlled by another process.
 
 1. Add the `save` method to `Walker`.
@@ -322,7 +323,7 @@ loggers += logging.create_loggers(self.coloc_log, op=MPI.MAX, names={'max_colocs
 self.data_set = logging.ReducingDataSet(loggers, comm, params['coloc_log_file'])
 ```
 
-2. Add the initial colocation count logging for time 0 at the beneath
+2. Add the initial colocation count logging for time 0 beneath
 `self.data_set`
 
 ```python
@@ -344,7 +345,7 @@ self.coloc_log.max_colocs = self.coloc_log.min_colocs = self.coloc_log.total_col
 ```
 
 4. Add the code to schedule `self.data_set.close` at model end underneath
-`self.data_set = ` in `Model.__init__()`
+`self.data_set = ...` in `Model.__init__()`
 
 ```python
 self.runner.schedule_end_event(self.data_set.close)
