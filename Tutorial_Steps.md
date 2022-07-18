@@ -1,5 +1,7 @@
 # Tutorial Steps
 
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/Repast/repast4py-tutorial.git/annsim_2022)
+
 The tutorial builds a version of the Random Walk demonstration model.
 The simulation itself consists of a number of agents moving at random around a two-dimensional grid 
 and logging the aggregate and agent-level colocation counts. Each timestep the following occurs:
