@@ -5,4 +5,3 @@
 Use Binder to run the [tutorial] (https://mybinder.org/v2/gh/Repast/repast4py-tutorial.git/HEAD) code 
 in a hosted environment.
 
-1. 
