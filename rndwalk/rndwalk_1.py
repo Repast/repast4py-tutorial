@@ -12,10 +12,11 @@ from repast4py.space import DiscretePoint as dpt
 class Walker(core.Agent):
 
     TYPE = 0
+    OFFSETS = np.array([-1, 1])
 
     def __init__(self, local_id: int, rank: int):
         super().__init__(id=local_id, type=Walker.TYPE, rank=rank)
-        
+
 
 class Model:
     """
@@ -37,7 +38,8 @@ class Model:
             # create and add the walker to the context
             walker = Walker(i, rank)
             self.context.add(walker)
-            print(walker.uid)
+            if walker.id < 10:
+                print(f'WALKER: {walker.uid}')
 
 def run(params: Dict):
     model = Model(MPI.COMM_WORLD, params)
