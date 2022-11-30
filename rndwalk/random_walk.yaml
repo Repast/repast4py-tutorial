@@ -1,6 +1,6 @@
 random.seed: 42
-stop.at: 4
+stop.at: 5
 walker.count: 1000
 world.width: 2000
 world.height: 2000
-coloc_log_file: 'output/coloc_log.csv'
+log.file: 'output/distance_log.csv'

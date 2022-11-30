@@ -9,12 +9,6 @@ import repast4py
 from repast4py.space import DiscretePoint as dpt
 
 
-@dataclass
-class DistanceLog:
-    min_distance: float = 0
-    max_distance: float = 0
-
-
 class Walker(core.Agent):
 
     TYPE = 0
@@ -23,7 +17,6 @@ class Walker(core.Agent):
     def __init__(self, local_id: int, rank: int, pt: dpt):
         super().__init__(id=local_id, type=Walker.TYPE, rank=rank)
         self.pt = pt
-        self.starting_pt = pt
 
     def walk(self, grid):
          # choose two elements from the OFFSET array
@@ -36,6 +29,8 @@ class Walker(core.Agent):
         if self.local_rank != self.uid_rank:
             print(f'{self.uid} walking at {self.pt} on rank {self.local_rank}')
 
+        
+    
     def save(self) -> Tuple:
         """Saves the state of this Walker as a Tuple.
 
@@ -43,9 +38,6 @@ class Walker(core.Agent):
             The saved state of this Walker.
         """
         return (self.uid, self.pt.coordinates)
-
-    def distance(self):
-        return np.linalg.norm(self.starting_pt.coordinates - self.pt.coordinates)        
 
 
 walker_cache = {}
@@ -67,6 +59,7 @@ def restore_walker(walker_data: Tuple):
 
     walker.pt = pt
     return walker
+
 
 
 class Model:
@@ -105,36 +98,14 @@ class Model:
             self.context.add(walker)
             self.grid.move(walker, pt)
 
-        self.log = DistanceLog()
-        loggers = logging.create_loggers(self.log, op=MPI.MIN, names={'min_distance': None}, rank=self.rank)
-        loggers += logging.create_loggers(self.log, op=MPI.MAX, names={'max_distance': None}, rank=self.rank)
-        self.data_set = logging.ReducingDataSet(loggers, comm, params['log.file'])
-        self.runner.schedule_end_event(self.data_set.close)
-
     def step(self):
-        self.log.max_distance = float('-inf')
-        self.log.min_distance = float('inf')
-
         for walker in self.context.agents():
             walker.walk(self.grid)
-            self.log_distance(walker)
-
-        tick = self.runner.schedule.tick
-        self.data_set.log(tick)
 
         self.context.synchronize(restore_walker)
 
-
-
     def start(self):
         self.runner.execute()
-
-    def log_distance(self, walker):
-        distance = walker.distance()
-        if distance < self.log.min_distance:
-            self.log.min_distance = distance
-        if distance > self.log.max_distance:
-            self.log.max_distance = distance
 
 def run(params: Dict):
     model = Model(MPI.COMM_WORLD, params)
