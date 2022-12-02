@@ -45,6 +45,8 @@ class Model:
             # create and add the walker to the context
             walker = Walker(i, self.rank)
             self.context.add(walker)
+
+        print(f'RANK: {self.rank}, SIZE: {self.context.size()[-1]}')
     
     # def step(self):
     #     for walker in self.context.agents():
