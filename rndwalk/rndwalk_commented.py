@@ -29,7 +29,7 @@ class Walker(core.Agent):
     # 5:    self.starting_pt = pt
 
     # 2: def walk(self):
-    # 2:    if self.id < 5:
+    # 2:    if self.id == 10:
     # 2:        print(f'WALKER: {self.uid} walking')
 
     # 3: def walk(self, grid):
@@ -38,7 +38,7 @@ class Walker(core.Agent):
          # x and y dimensions
     # 3:   xy_dirs = random.default_rng.choice(Walker.OFFSETS, size=2)
     # 3:   self.pt = grid.move(self, dpt(self.pt.x + xy_dirs[0], self.pt.y + xy_dirs[1], 0))
-    # 3:   if self.id == 999:
+    # 3:   if self.id == 10:
     # 3:       print(f'{self.uid} walking at {self.pt}')
 
     # 4:   if self.local_rank != self.uid_rank:
@@ -111,21 +111,27 @@ class Model:
             # get a random x,y location in the grid
             # 3: pt = self.grid.get_random_local_pt(rng)
             # create and add the walker to the context
-            walker = Walker(i, self.rank)
             # 3: walker = Walker(i, self.rank, pt)
             self.context.add(walker)
             # 3: self.grid.move(walker, pt)
 
         # 5: self.log = DistanceLog()
-        # 5: loggers = logging.create_loggers(self.log, op=MPI.MIN, names={'min_distance': None}, rank=self.rank)
-        # 5: loggers += logging.create_loggers(self.log, op=MPI.MAX, names={'max_distance': None}, rank=self.rank)
+        # 5: loggers = logging.create_loggers(self.log, op=MPI.MIN, names={'min_distance': 'min'}, rank=self.rank)
+        # 5: loggers += logging.create_loggers(self.log, op=MPI.MAX, names={'max_distance': 'max'}, rank=self.rank)
         # 5: self.data_set = logging.ReducingDataSet(loggers, comm, params['log.file'])
         # 5: self.runner.schedule_end_event(self.data_set.close)
 
     # 2: def step(self):
-    # 2:    for walker in self.context.agents()
+    # 2:    for walker in self.context.agents():
     # 2:        walker.walk()
-    
+
+    # 5: def log_distance(self, walker):
+    # 5:     distance = walker.distance()
+    # 5:     if distance < self.log.min_distance:
+    # 5:         self.log.min_distance = distance
+    # 5:     if distance > self.log.max_distance:
+    # 5:         self.log.max_distance = distance
+
     # 3: def step(self):
 
     # 5:    self.log.max_distance = float('-inf')
@@ -143,13 +149,7 @@ class Model:
     # 2: def start(self):
     # 2:    self.runner.execute()
 
-    # 5: def log_distance(self, walker):
-    # 5:     distance = walker.distance()
-    # 5:     if distance < self.log.min_distance:
-    # 5:         self.log.min_distance = distance
-    # 5:     if distance > self.log.max_distance:
-    # 5:         self.log.max_distance = distance
-
+    
 def run(params: Dict):
     model = Model(MPI.COMM_WORLD, params)
     # 2: model.start()

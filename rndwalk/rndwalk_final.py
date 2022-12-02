@@ -26,13 +26,11 @@ class Walker(core.Agent):
         self.starting_pt = pt
 
     def walk(self, grid):
-         # choose two elements from the OFFSET array
-         # to select the direction to walk in the
-         # x and y dimensions
+         ## choose two elements from the OFFSET array
+         ## to select the direction to walk in the
+         ## x and y dimensions
         xy_dirs = random.default_rng.choice(Walker.OFFSETS, size=2)
         self.pt = grid.move(self, dpt(self.pt.x + xy_dirs[0], self.pt.y + xy_dirs[1], 0))
-        # if self.id == 999:
-        #     print(f'{self.uid} walking at {self.pt}')
         if self.local_rank != self.uid_rank:
             print(f'{self.uid} walking at {self.pt} on rank {self.local_rank}')
 
@@ -55,7 +53,7 @@ def restore_walker(walker_data: Tuple):
     Args:
         walker_data: tuple containing the data returned by Walker.save.
     """
-    # uid is a 3 element tuple: 0 is id, 1 is type, 2 is rank
+    ## uid is a 3 element tuple: 0 is id, 1 is type, 2 is rank
     uid = walker_data[0]
     pt_array = walker_data[1]
     pt = dpt(pt_array[0], pt_array[1], 0)
@@ -87,29 +85,36 @@ class Model:
         self.runner.schedule_repeating_event(1, 1, self.step)
         self.runner.schedule_stop(params['stop.at'])
 
-        # create a bounding box equal to the size of the entire global world grid
+        ## create a bounding box equal to the size of the entire global world grid
         box = space.BoundingBox(0, params['world.width'], 0, params['world.height'], 0, 0)
-        # create a SharedGrid of 'box' size with sticky borders that allows multiple agents
-        # in each grid location.
+        ## create a SharedGrid of 'box' size with sticky borders that allows multiple agents
+        ## in each grid location.
         self.grid = space.SharedGrid(name='grid', bounds=box, borders=space.BorderType.Sticky,
                                      occupancy=space.OccupancyType.Multiple, buffer_size=2, comm=comm)
         self.context.add_projection(self.grid)
 
-        self.rank = comm.Get_rank()
         rng = repast4py.random.default_rng
+        self.rank = comm.Get_rank()
         for i in range(params['walker.count']):
-            # get a random x,y location in the grid
+            ## get a random x,y location in the grid
             pt = self.grid.get_random_local_pt(rng)
-            # create and add the walker to the context
+            ## create and add the walker to the context
             walker = Walker(i, self.rank, pt)
             self.context.add(walker)
             self.grid.move(walker, pt)
 
         self.log = DistanceLog()
-        loggers = logging.create_loggers(self.log, op=MPI.MIN, names={'min_distance': None}, rank=self.rank)
-        loggers += logging.create_loggers(self.log, op=MPI.MAX, names={'max_distance': None}, rank=self.rank)
+        loggers = logging.create_loggers(self.log, op=MPI.MIN, names={'min_distance': 'min'}, rank=self.rank)
+        loggers += logging.create_loggers(self.log, op=MPI.MAX, names={'max_distance': 'max'}, rank=self.rank)
         self.data_set = logging.ReducingDataSet(loggers, comm, params['log.file'])
         self.runner.schedule_end_event(self.data_set.close)
+
+    def log_distance(self, walker):
+        distance = walker.distance()
+        if distance < self.log.min_distance:
+            self.log.min_distance = distance
+        if distance > self.log.max_distance:
+            self.log.max_distance = distance
 
     def step(self):
         self.log.max_distance = float('-inf')
@@ -123,18 +128,11 @@ class Model:
         self.data_set.log(tick)
 
         self.context.synchronize(restore_walker)
-
-
+        print(f'RANK: {self.rank}, SIZE: {self.context.size()[-1]}')
 
     def start(self):
         self.runner.execute()
 
-    def log_distance(self, walker):
-        distance = walker.distance()
-        if distance < self.log.min_distance:
-            self.log.min_distance = distance
-        if distance > self.log.max_distance:
-            self.log.max_distance = distance
 
 def run(params: Dict):
     model = Model(MPI.COMM_WORLD, params)

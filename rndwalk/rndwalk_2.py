@@ -14,12 +14,18 @@ class Walker(core.Agent):
     TYPE = 0
     OFFSETS = np.array([-1, 1])
 
-    def __init__(self, local_id: int, rank: int):
-        super().__init__(id=local_id, type=Walker.TYPE, rank=rank)
+    # def __init__(self, local_id: int, rank: int, pt: dpt):
+        # super().__init__(id=local_id, type=Walker.TYPE, rank=rank)
+        # self.pt = pt
 
-    def walk(self):
-        if self.id == 10:
-            print(f'WALKER: {self.uid} walking')
+    # def walk(self, grid):
+        ## choose two elements from the OFFSET array
+        ## to select the direction to walk in the
+        ## x and y dimensions
+        # xy_dirs = random.default_rng.choice(Walker.OFFSETS, size=2)
+        # self.pt = grid.move(self, dpt(self.pt.x + xy_dirs[0], self.pt.y + xy_dirs[1], 0))
+        # if self.id == 10:
+        #     print(f'{self.uid} walking at {self.pt}')
 
 
 class Model:
@@ -40,15 +46,27 @@ class Model:
         self.runner.schedule_repeating_event(1, 1, self.step)
         self.runner.schedule_stop(params['stop.at'])
 
-        rank = comm.Get_rank()
+        ## create a bounding box equal to the size of the entire global world grid
+        # box = space.BoundingBox(0, params['world.width'], 0, params['world.height'], 0, 0)
+        ## create a SharedGrid of 'box' size with sticky borders that allows multiple agents
+        ## in each grid location.
+        # self.grid = space.SharedGrid(name='grid', bounds=box, borders=space.BorderType.Sticky,
+        #                              occupancy=space.OccupancyType.Multiple, buffer_size=2, comm=comm)
+        # self.context.add_projection(self.grid)
+
+        # rng = repast4py.random.default_rng
+        self.rank = comm.Get_rank()
         for i in range(params['walker.count']):
-            # create and add the walker to the context
-            walker = Walker(i, rank)
+            ## get a random x,y location in the grid
+            # pt = self.grid.get_random_local_pt(rng)
+            ## create and add the walker to the context
+            # walker = Walker(i, self.rank, pt)
             self.context.add(walker)
+            # self.grid.move(walker, pt)
 
     def step(self):
         for walker in self.context.agents():
-            walker.walk()
+            # walker.walk(self.grid)
 
     def start(self):
         self.runner.execute()

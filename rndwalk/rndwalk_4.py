@@ -9,6 +9,12 @@ import repast4py
 from repast4py.space import DiscretePoint as dpt
 
 
+# @dataclass
+# class DistanceLog:
+#     min_distance: float = 0
+#     max_distance: float = 0
+
+
 class Walker(core.Agent):
 
     TYPE = 0
@@ -17,20 +23,17 @@ class Walker(core.Agent):
     def __init__(self, local_id: int, rank: int, pt: dpt):
         super().__init__(id=local_id, type=Walker.TYPE, rank=rank)
         self.pt = pt
+        # self.starting_pt = pt
 
     def walk(self, grid):
-         # choose two elements from the OFFSET array
-         # to select the direction to walk in the
-         # x and y dimensions
+        ## choose two elements from the OFFSET array
+        ## to select the direction to walk in the
+        ## x and y dimensions
         xy_dirs = random.default_rng.choice(Walker.OFFSETS, size=2)
         self.pt = grid.move(self, dpt(self.pt.x + xy_dirs[0], self.pt.y + xy_dirs[1], 0))
-        # if self.id == 999:
-        #     print(f'{self.uid} walking at {self.pt}')
         if self.local_rank != self.uid_rank:
             print(f'{self.uid} walking at {self.pt} on rank {self.local_rank}')
 
-        
-    
     def save(self) -> Tuple:
         """Saves the state of this Walker as a Tuple.
 
@@ -38,6 +41,9 @@ class Walker(core.Agent):
             The saved state of this Walker.
         """
         return (self.uid, self.pt.coordinates)
+
+    # def distance(self):
+    #     return np.linalg.norm(self.starting_pt.coordinates - self.pt.coordinates)
 
 
 walker_cache = {}
@@ -47,7 +53,7 @@ def restore_walker(walker_data: Tuple):
     Args:
         walker_data: tuple containing the data returned by Walker.save.
     """
-    # uid is a 3 element tuple: 0 is id, 1 is type, 2 is rank
+    ## uid is a 3 element tuple: 0 is id, 1 is type, 2 is rank
     uid = walker_data[0]
     pt_array = walker_data[1]
     pt = dpt(pt_array[0], pt_array[1], 0)
@@ -59,7 +65,6 @@ def restore_walker(walker_data: Tuple):
 
     walker.pt = pt
     return walker
-
 
 
 class Model:
@@ -80,32 +85,54 @@ class Model:
         self.runner.schedule_repeating_event(1, 1, self.step)
         self.runner.schedule_stop(params['stop.at'])
 
-        # create a bounding box equal to the size of the entire global world grid
+        ## create a bounding box equal to the size of the entire global world grid
         box = space.BoundingBox(0, params['world.width'], 0, params['world.height'], 0, 0)
-        # create a SharedGrid of 'box' size with sticky borders that allows multiple agents
-        # in each grid location.
+        ## create a SharedGrid of 'box' size with sticky borders that allows multiple agents
+        ## in each grid location.
         self.grid = space.SharedGrid(name='grid', bounds=box, borders=space.BorderType.Sticky,
                                      occupancy=space.OccupancyType.Multiple, buffer_size=2, comm=comm)
         self.context.add_projection(self.grid)
 
-        self.rank = comm.Get_rank()
         rng = repast4py.random.default_rng
+        self.rank = comm.Get_rank()
         for i in range(params['walker.count']):
-            # get a random x,y location in the grid
+            ## get a random x,y location in the grid
             pt = self.grid.get_random_local_pt(rng)
-            # create and add the walker to the context
+            ## create and add the walker to the context
             walker = Walker(i, self.rank, pt)
             self.context.add(walker)
             self.grid.move(walker, pt)
 
+        # self.log = DistanceLog()
+        # loggers = logging.create_loggers(self.log, op=MPI.MIN, names={'min_distance': 'min'}, rank=self.rank)
+        # loggers += logging.create_loggers(self.log, op=MPI.MAX, names={'max_distance': 'max'}, rank=self.rank)
+        # self.data_set = logging.ReducingDataSet(loggers, comm, params['log.file'])
+        # self.runner.schedule_end_event(self.data_set.close)
+
+    # def log_distance(self, walker):
+    #     distance = walker.distance()
+    #     if distance < self.log.min_distance:
+    #         self.log.min_distance = distance
+    #     if distance > self.log.max_distance:
+    #         self.log.max_distance = distance
+
     def step(self):
+        # self.log.max_distance = float('-inf')
+        # self.log.min_distance = float('inf')
+
         for walker in self.context.agents():
             walker.walk(self.grid)
+            # self.log_distance(walker)
+        
+        # tick = self.runner.schedule.tick
+        # self.data_set.log(tick)
 
         self.context.synchronize(restore_walker)
+        print(f'RANK: {self.rank}, SIZE: {self.context.size()[-1]}')
 
     def start(self):
         self.runner.execute()
+
 
 def run(params: Dict):
     model = Model(MPI.COMM_WORLD, params)
