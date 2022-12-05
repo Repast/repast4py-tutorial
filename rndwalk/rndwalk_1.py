@@ -56,6 +56,7 @@ class Model:
     #     self.runner.execute()
 
 def run(params: Dict):
+    print(f'PARAMETERS: {params}')
     model = Model(MPI.COMM_WORLD, params)
 
 

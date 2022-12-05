@@ -1,18 +1,18 @@
 # Tutorial Steps
 
-[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/Repast/repast4py-tutorial.git/annsim_2022)
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/Repast/repast4py-tutorial.git/WSC_2022)
 
 The tutorial builds a version of the Random Walk demonstration model.
 The simulation itself consists of a number of agents moving at random around a two-dimensional grid 
-and logging the aggregate and agent-level colocation counts. Each timestep the following occurs:
+and logging the current minimum and maximum distance from all the agent's 
+starting points. In the final model, each timestep the following occurs:
 
 1. All the agents (walkers) choose a random direction and move one unit in that direction.
 
-2. All the agents count the number of other agents they meet at their current
-location by determining the number of colocated agents at their grid locations.
+2. All the agents determine their current distance from their starting point.
 
-3. The sum, minimum, and maxiumum number of co-located agents are calculated across
-all process ranks, and these values are logged as the total, minimum, and maximum colocation
+3. The minimum, and maxiumum distances are calculated across
+all process ranks, and these values are logged as the minimum, and maximum distance
 values.
 
 The code consists of the following components:
@@ -24,12 +24,23 @@ The code consists of the following components:
 5. An `if name == "main"` block that allows the simulation to be run from the command line.
 
 
-The tutorial code begins with a skeleton, and we progressively add code to that
-to implement the components. The code for the completed is specified at the beginning of each step.
+The tutorial code consists of 4 files `python/rndwalk_[1-4].py`. Each file
+contains commented lines that we will uncomment to progressively build the
+model. Uncommenting the code in `rndwalk_1.py` yields `rndwalk_2.py` which
+when uncommented will in turn yield `rndwalk_3.py` and so on. `rndwalk_final.py` 
+implements the final model, and `rndwalk_commented.py` contains all the commented
+code from each file, numbered accordingly. After completing each step,
+you can run the model with:
+
+1. python3 rndwalk_N.py random_walk.yaml 
+2. mpirun -n 2 python3 rndwalk_N.py random_walk.yaml 
+
+To see the effect of the additions in both the single and multiprocess
+scenarios.
 
 ## Step 0
 
-Completed code in `rndwalk_0.py`.
+Code in `rndwalk_1.py`.
 
 1. Open a terminal in the binder Jupyter Lab launcher, and do
 the following:
@@ -44,76 +55,35 @@ $ python rndwalk.py random_walk.yaml
 
 The skeleton parses the parameters from a yaml file and prints them out.
 
+Note that 
+    * the `Walker` agent extends repast4py's `core.Agent`.
+    * the `Model` contains a `SharedContext` and creates a population
+    of `Walker` agents to add to that.
+
 ## Step 1
 
-Completed code in `rndwalk_1.py`.
+Code in `rndwalk_1.py`.
 
-Step 1 begins the Walker agent implementation and
-creates a population of Walker agents in the Model.
+Step 1 adds the walker behavior using scheduled events.
 
-1. Add a minimal Walker to the code.
+1. Add a walk method to the Walker class, by uncommenting
+it in the Walker class.
 
 ```python
 class Walker(core.Agent):
 
     TYPE = 0
+    OFFSETS = np.array([-1, 1])
 
     def __init__(self, local_id: int, rank: int):
         super().__init__(id=local_id, type=Walker.TYPE, rank=rank)
+
+    def walk(self):
+        if self.id == 10:
+            print(f'WALKER: {self.uid} walking')
 ```
 
-2. In `Model.__init__()` create a context and the walkers
-
-```python
-self.context = ctx.SharedContext(comm)
-rank = comm.Get_rank()
-
-for i in range(params['walker.count']):
-    # create and add the walker to the context
-    walker = Walker(i, rank)
-    self.context.add(walker)
-    print(walker.uid)
-```
-
-```bash
-$ python rndwalk.py random_walk.yaml
-(0, 0, 0)
-(1, 0, 0)
-...
-$ mpirun -n 2 python rndwalk.py random_walk.yaml
-(0, 0, 0)
-(1, 0, 0)
-...
-(0, 0, 1)
-(1, 0, 1)
-...
-```
-
-Notice how in the second case we have 1K agents on each process rank (0 and 1).
-
-## Step 2
-
-Completed code in `rndwalk_2.py`.
-
-Step 2 continues the Walker implementation with a initial walk method,
-and schedules that method to execute all the agents via the Model.
-
-1. Add a walk method to Walker
-
-```python
-def walk(self):
-    print(f'{self.uid} walking')
-```
-
-2. Add `Model.step()` to walk the Walkers.
-
-```python
-def step(self):
-    for walker in self.context.agents():
-        walker.walk()
-```
-
-3. In `Model.__init__()` create the schedule and schedule the step method
+2. In `Model.__init__()` uncomment the scheduling code:
 
 ```python
 self.runner = schedule.init_schedule_runner(comm)
@@ -121,76 +91,90 @@ self.runner.schedule_repeating_event(1, 1, self.step)
 self.runner.schedule_stop(params['stop.at'])
 ```
 
-4. Add a `start` method to `Model` to start the schedule
+Uncomment the `Model.step` and `Model.start` methods:
 
 ```python
+def step(self):
+        for walker in self.context.agents():
+            walker.walk()
+
 def start(self):
     self.runner.execute()
 ```
 
-4. In `def run()` call `Model.start()`
+Run it:
 
-```python
-def run(params: Dict):
-    model = Model(MPI.COMM_WORLD, params)
-    model.start()
+```bash
+$ python rndwalk.py random_walk.yaml
+(10, 0, 0)
+(10, 0, 0)
+...
+$ mpirun -n 2 python rndwalk.py random_walk.yaml
+(10, 0, 0)
+(10, 0, 0)
+...
+(10, 0, 1)
+(10, 0, 1)
+...
 ```
 
-## Step 3
+Notice how in the second case we have 1K agents on each process rank (0 and 1).
 
-Completed code in `rndwalk_3.py`.
+## Step 2
 
-Step 3 adds the 2D grid on which the Walkers walk.
+Code in `rndwalk_2.py`.
 
-1. In `Model.__init__()` below the schedule code, initialize the `SharedGrid`.
+Step 2 adds the grid to the model and the agent code for
+walking around it.
+
+1. Uncomment `Walker.__init__` and `Walker.walk`
 
 ```python
-# create a bounding box equal to the size of the entire global world grid
-box = space.BoundingBox(0, params['world.width'], 0, params['world.height'], 0, 0)
-# create a SharedGrid of 'box' size with sticky borders that allows multiple agents
-# in each grid location.
-self.grid = space.SharedGrid(name='grid', bounds=box, borders=space.BorderType.Sticky,
-                                occupancy=space.OccupancyType.Multiple, buffer_size=2, comm=comm)
+def __init__(self, local_id: int, rank: int, pt: dpt):
+        super().__init__(id=local_id, type=Walker.TYPE, rank=rank)
+        self.pt = pt
+
+def walk(self, grid):
+    # choose two elements from the OFFSET array
+    # to select the direction to walk in the
+    # x and y dimensions
+    xy_dirs = random.default_rng.choice(Walker.OFFSETS, size=2)
+    self.pt = grid.move(self, dpt(self.pt.x + xy_dirs[0], self.pt.y + xy_dirs[1], 0))
+    if self.id == 10:
+        print(f'{self.uid} walking at {self.pt}')
+```
+
+`__init__` has been updated to take an initial agent location as
+a parameter. `walk` now takes the shared grid as a parameter and chooses
+random distances to walk in the x and y dimensions on that grid.
+
+2. In `Model.__init__` uncomment the code that creates the `SharedGrid`
+and the code that adds agents to it.
+
+```python
+## create a bounding box equal to the size of the entire global world grid
+box = space.BoundingBox(0, params['world.width'], 0, params['world.height'],
+                        0, 0)
+## create a SharedGrid of 'box' size with sticky borders that allows multiple agents
+## in each grid location.
+self.grid = space.SharedGrid(name='grid', bounds=box, 
+                             borders=space.BorderType.Sticky,
+                             occupancy=space.OccupancyType.Multiple, buffer_size=2, comm=comm)
 self.context.add_projection(self.grid)
-```
 
-2. Update the Walker creation code in `Model.__init__` to 
-place the Walkers at a random location on the grid.
-
-```python
 rng = repast4py.random.default_rng
+self.rank = comm.Get_rank()
 for i in range(params['walker.count']):
     # get a random x,y location in the grid
     pt = self.grid.get_random_local_pt(rng)
     # create and add the walker to the context
-    walker = Walker(i, rank, pt)
+    walker = Walker(i, self.rank, pt)
     self.context.add(walker)
     self.grid.move(walker, pt)
 ```
 
-3. Update the Walker's constructor to accept the grid point:
-
-```python
-def __init__(self, local_id: int, rank: int, pt: dpt):
-    super().__init__(id=local_id, type=Walker.TYPE, rank=rank)
-    self.pt = pt
-```
-
-4. And update `Walker.walk` to display the point
-
-```python
-def walk(self):
-    print(f'{self.uid} walking on {self.pt}')
-```
-
-
-## Step 4
-
-Completed code in `rndwalk_4.py`.
-
-Step 4 adds the Walker walking around the 2D grid.
-
-1. In `Model.step()` pass `self.grid` to `Walker.walk`:
+3. Uncomment the code in `Model.step` to walk the agents, but
+now passing the grid.
 
 ```python
 def step(self):
@@ -198,160 +182,180 @@ def step(self):
         walker.walk(self.grid)
 ```
 
-2. Update `Walker.walk` with the `grid` argument and implement the
-random movement.
+## Step 3
+
+Code in `rndwalk_3.py`.
+
+Step 3 adds synchronization. In step 2, walkers could walk off their
+local grid into "nowhere". Step 3 adds cross-process synchronization
+that will move agents between processes such that when an agent walks out
+of its local area, it is moved to the process containing the area it has
+walked into. 
+
+1. Uncomment the new walking code in `Walker.walk`.
 
 ```python
-OFFSETS = np.array([-1, 1])
-
-def walk(self, grid):
-    # choose two elements from the OFFSET array
-    # to select the direction to walk in the
-    # x and y dimensions
-    xy_dirs = random.default_rng.choice(Walker.OFFSETS, size=2)
-    self.pt = grid.move(self, dpt(self.pt.x + xy_dirs[0], self.pt.y + xy_dirs[1], 0)
-    if self.id < 10:
-        print(f'{self.uid} walking at {self.pt}')
+self.pt = grid.move(self, dpt(self.pt.x + xy_dirs[0], self.pt.y + xy_dirs[1], 0))
+if self.local_rank != self.uid_rank:
+    print(f'{self.uid} walking at {self.pt} on rank {self.local_rank}')
 ```
 
-## Step 5
+This will print out the id of those Walkers that have moved to
+a different rank.
 
-Completed code in `rndwalk_5.py`.
-
-Step 5 adds multiprocess synchronization so that Walkers can walk out of their
-local area into that controlled by another process.
-
-1. Add the `save` method to `Walker`.
+2. Uncomment `Walker.save`.
 
 ```python
 def save(self) -> Tuple:
     """Saves the state of this Walker as a Tuple.
 
     Returns:
-        The saved state of this Walker.
+       The saved state of this Walker.
     """
     return (self.uid, self.pt.coordinates)
 ```
 
-2. Add a `restore_walker` function to create a `Walker` from the
-data returned from `save`.
+This saves the state of the walker as a tuple.
+
+3. Uncomment `walker_cache` and the `restore_walker` function.
 
 ```python
 walker_cache = {}
 
 def restore_walker(walker_data: Tuple):
-    """
-    Args:
-        walker_data: tuple containing the data returned by Walker.save.
-    """
-    # uid is a 3 element tuple: 0 is id, 1 is type, 2 is rank
-    uid = walker_data[0]
-    pt_array = walker_data[1]
-    pt = dpt(pt_array[0], pt_array[1], 0)
+   """
+   Args:
+       walker_data: tuple containing the data returned by Walker.save.
+   """
+   # uid is a 3 element tuple: 0 is id, 1 is type, 2 is rank
+   uid = walker_data[0]
+   pt_array = walker_data[1]
+   pt = dpt(pt_array[0], pt_array[1], 0)
 
-    if uid in walker_cache:
-        walker = walker_cache[uid]
-    else:
-        walker = Walker(uid[0], uid[2], pt)
+   if uid in walker_cache:
+       walker = walker_cache[uid]
+   else:
+       walker = Walker(uid[0], uid[2], pt)
 
-    walker.pt = pt
-    return walker
+   walker.pt = pt
+   return walker
 ```
 
-3. Add synchronization to `Model.step` after the iteration through the
-Walkers.
+The restore function is used to create `Walker` agents from
+the tuple returned from `Walker.save`. The `walker_cache` is
+used to cache agents so they don't have to reconstructed if
+when they enter a new rank multiple times.
+
+4. Uncomment the `synchronize` call in `Model.step`.
 
 ```python
 self.context.synchronize(restore_walker)
 ```
 
-## Step 6
+`synchronize` will use the `restore_walker` function to
+properly move agents between process ranks.
 
-Completed code in `rndwalk_6.py`.
+## Step 4
 
-Step 6 begins the logging of the colocation counts.
+Code in `rndwalk_4.py`.
 
-1. Add the dataclass that records the colocation count data.
+Step 4 adds the distance logging to the model. The distance logging
+will log the minimum and maximum current distance from an origin
+over all the agents current distances.
+
+1. Uncomment the `DistanceLog` dataclass.
 
 ```python
 @dataclass
-class ColocationLog:
-    total_colocs: int = 0
-    min_colocs: int = 0
-    max_colocs: int = 0
+class DistanceLog:
+    min_distance: float = 0
+    max_distance: float = 0
 ```
 
-2. Add colocation counting to the `Walker` in a `count_colocations` method:
+Each rank will record its own minimum and maximum distance
+in this dataclass.
+
+2. Uncomment the `starting_pt` assignment in
+`Walker.__init__`. 
 
 ```python
-def count_colocations(self, grid, coloc_log: ColocationLog):
-    # subtract self
-    num_here = grid.get_num_agents(self.pt) - 1
-    coloc_log.total_colocs += num_here
-    if num_here < coloc_log.min_colocs:
-        coloc_log.min_colocs = num_here
-    if num_here > coloc_log.max_colocs:
-        coloc_log.max_colocs = num_here
+self.starting_pt = pt
 ```
 
-3. Add the call to `Walker.count_colocations` to the agent iteration in 
-`step`.
+3. Uncomment `Walker.distance`.
 
 ```python
-for walker in self.context.agents(shuffle=True):
-    walker.count_colocations(self.grid, self.coloc_log)
-    walker.walk(self.grid)
+def distance(self):
+    return np.linalg.norm(self.starting_pt.coordinates -
+                          self.pt.coordinates)
+```
+This returns the Euclidian distance between the Walker's starting point and its current point.
+
+4. Uncomment the log initialization code in `Model.__init__`
+
+```python
+self.log = DistanceLog()
+# loggers = logging.create_loggers(self.log, op=MPI.MIN, names={'min_distance': 'min'}, rank=self.rank)
+# loggers += logging.create_loggers(self.log, op=MPI.MAX, names={'max_distance': 'max'}, rank=self.rank)
+# self.data_set = logging.ReducingDataSet(loggers, comm, params['log.file'])
+# self.runner.schedule_end_event(self.data_set.close)
 ```
 
-4. Create the `ColocationLog` in `Model.__init_` after the
-agent creation loop.
+A logger is responsible for recording data from one or more fields in a dataclass, and
+applying a cross process reduction operation on those value(s) (e.g., summing across ranks)
+to yield the final logged value(s). These loggers are passed to a `ReducingDataSet` which you
+will use to log the data at specific times. Lastly, we need to close the data set when 
+the model terminates in order to write any remaining data, and we do this with a scheduled
+end event that calls `close` on the data set when the model ends.
+
+5. Uncomment `Model.log_distance`.
 
 ```python
-self.coloc_log = ColocationLog()
+def log_distance(self, walker):
+    distance = walker.distance()
+    if distance < self.log.min_distance:
+        self.log.min_distance = distance
+    if distance > self.log.max_distance:
+        self.log.max_distance = distance
 ```
 
-## Step 7
+This checks each Walker to see if it's current distance is a new
+minimum or maximum. If so, then set the appropriate dataclass field.
 
-Completed code in `rndwalk_7.py`.
-
-Step 7 completes the logging of co-location counts.
-
-1. Add the logger creation to the bottom of `Model.__init__()`
+6. Uncomment the new logging code in `Model.step`.
 
 ```python
-loggers = logging.create_loggers(self.coloc_log, op=MPI.SUM, names={'total_colocs': 'total'}, rank=rank)
-loggers += logging.create_loggers(self.coloc_log, op=MPI.MIN, names={'min_colocs': 'min'}, rank=rank)
-loggers += logging.create_loggers(self.coloc_log, op=MPI.MAX, names={'max_colocs': 'max'}, rank=rank)
-self.data_set = logging.ReducingDataSet(loggers, comm, params['coloc_log_file'])
-```
+self.log.max_distance = float('-inf')
+self.log.min_distance = float('inf')
 
-2. Add the initial colocation count logging for time 0 beneath
-`self.data_set`
-
-```python
-# count the initial colocations at time 0 and log
 for walker in self.context.agents():
-    walker.count_colocations(self.grid, self.coloc_log)
-self.data_set.log(0)
-# clear the log counts
-self.coloc_log.max_colocs = self.coloc_log.min_colocs = self.coloc_log.total_colocs = 0
-```
+    walker.walk(self.grid)
+    self.log_distance(walker)
 
-3. Add the code to perform the logging every tick to `Model.step()`
-
-```python
 tick = self.runner.schedule.tick
 self.data_set.log(tick)
-# clear the log counts for the next tick
-self.coloc_log.max_colocs = self.coloc_log.min_colocs = self.coloc_log.total_colocs = 0
 ```
 
-4. Add the code to schedule `self.data_set.close` at model end underneath
-`self.data_set = ...` in `Model.__init__()`
+This resets the maximum and minimum dataclass fields for the next tick,
+checks each `Walkers` distance by calling `log_distance` and then logs
+the current values in the dataset by performing the cross-process reduction
+and logging those values.
 
-```python
-self.runner.schedule_end_event(self.data_set.close)
+When you run this, the data will be logged to `output/distance_log.csv` file,
+as specified in the yaml parameters. Opening that file, you should see 
+something like:
+
+```csv
+tick,min,max
+1,1.4142135623730951,1.4142135623730951
+2,0.0,2.8284271247461903
+3,1.0,4.242640687119285
+4,0.0,5.656854249492381
+5,1.4142135623730951,7.0710678118654755
+...
 ```
-
-Open the log file - `rndwalk/output/coloc_log.csv` to view 
-the logged colocation counts.
+Note that the data logging code will automatically create a new file name from
+the original, if that file already exists. For example, if 
+`output/distance_log.csv` exists then `output/distance_log_1.csv` will
+be used. If that file existsn then `output/distance_log_2.csv` will be used,
+and so on.

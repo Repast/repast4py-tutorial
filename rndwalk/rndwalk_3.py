@@ -98,7 +98,7 @@ class Model:
             walker.walk(self.grid)
         
         # self.context.synchronize(restore_walker)
-        # print(f'RANK: {self.rank}, SIZE: {self.context.size()[-1]}')
+        print(f'RANK: {self.rank}, SIZE: {self.context.size()[-1]}')
 
     def start(self):
         self.runner.execute()
