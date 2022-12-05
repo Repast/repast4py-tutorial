@@ -1,6 +1,6 @@
 # Tutorial Steps
 
-[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/Repast/repast4py-tutorial.git/WSC_2022)
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/Repast/repast4py-tutorial.git/wsc_2022)
 
 The tutorial builds a version of the Random Walk demonstration model.
 The simulation itself consists of a number of agents moving at random around a two-dimensional grid 
