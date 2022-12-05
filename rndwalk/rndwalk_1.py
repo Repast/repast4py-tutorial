@@ -58,6 +58,7 @@ class Model:
 def run(params: Dict):
     print(f'PARAMETERS: {params}')
     model = Model(MPI.COMM_WORLD, params)
+    # model.start()
 
 
 if __name__ == "__main__":

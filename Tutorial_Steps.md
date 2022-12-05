@@ -91,7 +91,7 @@ self.runner.schedule_repeating_event(1, 1, self.step)
 self.runner.schedule_stop(params['stop.at'])
 ```
 
-Uncomment the `Model.step` and `Model.start` methods:
+3. Uncomment the `Model.step` and `Model.start` methods:
 
 ```python
 def step(self):
@@ -100,6 +100,15 @@ def step(self):
 
 def start(self):
     self.runner.execute()
+```
+
+4. Uncomment the start code in the `run` function
+
+```python
+def run(params: Dict):
+    print(f'PARAMETERS: {params}')
+    model = Model(MPI.COMM_WORLD, params)
+    model.start()
 ```
 
 Run it:
@@ -254,6 +263,9 @@ self.context.synchronize(restore_walker)
 
 `synchronize` will use the `restore_walker` function to
 properly move agents between process ranks.
+
+When running Step 3, increase the `stop.at` parameter so there
+is enough iterations for agents to walk off their original ranks
 
 ## Step 4
 
