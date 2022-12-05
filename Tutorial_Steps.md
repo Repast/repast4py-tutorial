@@ -50,15 +50,17 @@ $ cd rndwalk
 $ cp rndwalk_0.py rndwalk.py
 $ python rndwalk.py random_walk.yaml
 
-{'random.seed': 42, 'stop.at': 50, 'walker.count': 1000, 'world.width': 2000, 'world.height': 2000, 'coloc_log_file': 'output/coloc_log.csv'}
+PARAMETERS: {'random.seed': 42, 'stop.at': 5, 'walker.count': 1000, 'world.width': 2000, 'world.height': 2000, 'log.file': 'output/distance_log.csv'}
+RANK: 0, SIZE: 1000
 ```
 
 The skeleton parses the parameters from a yaml file and prints them out.
 
-Note that 
-    * the `Walker` agent extends repast4py's `core.Agent`.
-    * the `Model` contains a `SharedContext` and creates a population
-    of `Walker` agents to add to that.
+Note that:
+
+ * the `Walker` agent extends repast4py's `core.Agent`.
+ * the `Model` contains a `SharedContext` and creates a population
+ of `Walker` agents to add to that.
 
 ## Step 1
 
