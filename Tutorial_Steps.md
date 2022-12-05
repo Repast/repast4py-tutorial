@@ -58,9 +58,9 @@ The skeleton parses the parameters from a yaml file and prints them out.
 
 Note that:
 
- * the `Walker` agent extends repast4py's `core.Agent`.
- * the `Model` contains a `SharedContext` and creates a population
- of `Walker` agents to add to that.
+* the `Walker` agent extends repast4py's `core.Agent`.
+* the `Model` contains a `SharedContext` and creates a population
+of `Walker` agents to add to that.
 
 ## Step 1
 
