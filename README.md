@@ -1,5 +1,5 @@
 # Repast4Py Tutorial
 
-[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/Repast/repast4py-tutorial.git/wsc_2022)
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/Repast/repast4py-tutorial.git/ssc_2025)
 
-Use the link above to run tutorial is a hosted Binder environment.
+Use the link above to run the tutorial in a hosted Binder environment.

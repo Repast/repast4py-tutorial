@@ -1,6 +1,14 @@
 from mpi4py import MPI
 
-size = MPI.COMM_WORLD.Get_size()
-rank = MPI.COMM_WORLD.Get_rank()
+comm = MPI.COMM_WORLD
+size = comm.Get_size()
+rank = comm.Get_rank()
 
-print(f'Hello, World! I am rank {rank} of {size}')
+print(f"Hello, World! I am rank {rank} of {size}")
+if rank == 0:
+    message = [1, 2, 3]
+else:
+    message = None
+
+message = comm.bcast(message, root=0)
+print(f"{rank} received {message}")
