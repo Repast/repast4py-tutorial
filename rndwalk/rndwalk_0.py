@@ -17,11 +17,7 @@ class Walker(core.Agent):
     def __init__(self, local_id: int, rank: int):
         super().__init__(id=local_id, type=Walker.TYPE, rank=rank)
 
-    def walk(self):
-        if self.id == 10:
-            print(f'WALKER: {self.uid} walking')
-
-
+  
 class Model:
     """
     The Model class encapsulates the simulation, and is
@@ -36,9 +32,6 @@ class Model:
 
     def __init__(self, comm: MPI.Intracomm, params: Dict):
         self.context = ctx.SharedContext(comm)
-        self.runner = schedule.init_schedule_runner(comm)
-        self.runner.schedule_repeating_event(1, 1, self.step)
-        self.runner.schedule_stop(params['stop.at'])
 
         self.rank = comm.Get_rank()
         for i in range(params['walker.count']):
@@ -48,17 +41,9 @@ class Model:
 
         print(f'RANK: {self.rank}, SIZE: {self.context.size()[-1]}')
     
-    def step(self):
-        for walker in self.context.agents():
-            walker.walk()
-
-    def start(self):
-        self.runner.execute()
-
 def run(params: Dict):
     print(f'PARAMETERS: {params}')
     model = Model(MPI.COMM_WORLD, params)
-    model.start()
 
 
 if __name__ == "__main__":

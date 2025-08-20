@@ -25,36 +25,36 @@ class Walker(core.Agent):
         xy_dirs = random.default_rng.choice(Walker.OFFSETS, size=2)
         ## self.pt = grid.move(self, dpt(self.pt.x + 1, self.pt.y, 0))
         self.pt = grid.move(self, dpt(self.pt.x + xy_dirs[0], self.pt.y + xy_dirs[1], 0))
-        # if self.local_rank != self.uid_rank:
-        #     print(f'{self.uid} walking at {self.pt} on rank {self.local_rank}')
+        if self.local_rank != self.uid_rank:
+            print(f'{self.uid} walking at {self.pt} on rank {self.local_rank}')
 
-    # def save(self) -> Tuple:
-       # """Saves the state of this Walker as a Tuple.
+    def save(self) -> Tuple:
+       """Saves the state of this Walker as a Tuple.
 
-       # Returns:
-       #    The saved state of this Walker.
-       # """
-       # return (self.uid, self.pt.coordinates)
+       Returns:
+          The saved state of this Walker.
+       """
+       return (self.uid, self.pt.coordinates)
 
-# walker_cache = {}
+walker_cache = {}
 
-# def restore_walker(walker_data: Tuple):
-#    """
-#    Args:
-#        walker_data: tuple containing the data returned by Walker.save.
-#    """
-#    # uid is a 3 element tuple: 0 is id, 1 is type, 2 is rank
-#    uid = walker_data[0]
-#    pt_array = walker_data[1]
-#    pt = dpt(pt_array[0], pt_array[1], 0)
+def restore_walker(walker_data: Tuple):
+   """
+   Args:
+       walker_data: tuple containing the data returned by Walker.save.
+   """
+   # uid is a 3 element tuple: 0 is id, 1 is type, 2 is rank
+   uid = walker_data[0]
+   pt_array = walker_data[1]
+   pt = dpt(pt_array[0], pt_array[1], 0)
 
-#    if uid in walker_cache:
-#        walker = walker_cache[uid]
-#    else:
-#        walker = Walker(uid[0], uid[2], pt)
+   if uid in walker_cache:
+       walker = walker_cache[uid]
+   else:
+       walker = Walker(uid[0], uid[2], pt)
 
-#    walker.pt = pt
-#    return walker
+   walker.pt = pt
+   return walker
 
 
 class Model:
@@ -83,7 +83,7 @@ class Model:
                                      occupancy=space.OccupancyType.Multiple, buffer_size=2, comm=comm)
         self.context.add_projection(self.grid)
 
-        rng = repast4py.random.default_rng
+        rng = random.default_rng
         self.rank = comm.Get_rank()
         for i in range(params['walker.count']):
             ## get a random x,y location in the grid
@@ -97,7 +97,7 @@ class Model:
         for walker in self.context.agents():
             walker.walk(self.grid)
         
-        # self.context.synchronize(restore_walker)
+        self.context.synchronize(restore_walker)
         print(f'RANK: {self.rank}, SIZE: {self.context.size()[-1]}')
 
     def start(self):
