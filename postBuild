@@ -1,3 +1,4 @@
 #! /bin/bash
 export CC=mpicxx CXX=mpicxx
-pip install repast4py
+pip3 install mpi4py --no-binary mpi4py
+pip3 install repast4py
