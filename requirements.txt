@@ -1,2 +1,3 @@
-mpi4py
-repast4py
+click
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch
